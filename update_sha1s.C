@@ -29,6 +29,9 @@
  *   4. Write new .sha1s
  */
 
+long ignore_seconds = 0;
+struct timespec now;
+
 class CFileHash {
 public:
 	CFileHash()
@@ -178,6 +181,9 @@ bool update_sha1(CFileHashMap &sha1s, const std::string &path)
 	if (fstat(fd, &sb) != 0)
 		error(EXIT_FAILURE, errno, "Could not stat %s", path.c_str());
 
+	if (ignore_seconds && (now.tv_sec - sb.st_mtim.tv_sec) > ignore_seconds)
+		return false;
+
 	auto it = sha1s.find(path);
 	if ((it != sha1s.end()) && (it->second.modified() == sb.st_mtim)) {
 		it->second.touch();
@@ -245,7 +251,6 @@ void parse_long_arg(long &arg, const char *s)
 int main(int argc, char *argv[])
 {
 	bool remove_missing = false;
-	long ignore_seconds = 0;
 
 	int opt;
 	while ((opt = getopt(argc, argv, "ci:")) != -1) {
@@ -264,6 +269,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (clock_gettime(CLOCK_REALTIME, &now) != 0)
+		error(EXIT_FAILURE, errno, "clock_gettime");
+
 	bool need_to_write = false;
 
 	CFileHashMap sha1s{load_sha1s()};
@@ -271,10 +279,6 @@ int main(int argc, char *argv[])
 		printf("No new or modified files.\n");
 	else
 		need_to_write = true;
-
-	struct timespec now;
-	if (clock_gettime(CLOCK_REALTIME, &now) != 0)
-		error(EXIT_FAILURE, errno, "gettimeofday");
 
 	if (remove_missing || ignore_seconds) {
 		bool expired = false;
