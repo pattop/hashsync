@@ -211,9 +211,8 @@ bool update_sha1s(CFileHashMap &sha1s, std::string path = ".")
 	struct dirent* de;
 	while ((de = readdir(d))) {
 		std::string name(path + "/" + de->d_name);
-		if (name == "./.sha1s")
-			continue;
-		if (name == "./.sha1s.tmp")
+		/* Ignore anything starting with ".sha1s" */
+		if (strncmp(name.c_str(), "./.sha1s", 8) == 0)
 			continue;
 		if (de->d_type == DT_DIR) {
 			if (strcmp(de->d_name, ".") == 0)
