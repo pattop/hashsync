@@ -8,6 +8,10 @@
 	_a < _b ? _a : _b; \
 })
 
+#ifndef UINT32_C
+#define UINT32_C(c) c##UL
+#endif
+
 void sha1_start(sha1_state *s)
 {
 	s->index = 0;

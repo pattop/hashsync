@@ -1,0 +1,2 @@
+update_sha1s: sha1.c sha1-fast-64.S sha1.h update_sha1s.C
+	g++ -std=gnu++0x -Wall -O2 -lrt -o $@ $^

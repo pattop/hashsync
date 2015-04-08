@@ -209,7 +209,7 @@ bool update_sha1s(CFileHashMap &sha1s, std::string path = ".")
 	bool updated = false;
 	struct dirent* de;
 	while ((de = readdir(d))) {
-		std::string name{path + "/" + de->d_name};
+		std::string name(path + "/" + de->d_name);
 		if (name == "./.sha1s")
 			continue;
 		if (name == "./.sha1s.tmp")
@@ -274,7 +274,7 @@ int main(int argc, char *argv[])
 
 	bool need_to_write = false;
 
-	CFileHashMap sha1s{load_sha1s()};
+	CFileHashMap sha1s(load_sha1s());
 	if (!update_sha1s(sha1s))
 		printf("No new or modified files.\n");
 	else
@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
 	if (remove_missing || ignore_seconds) {
 		bool expired = false;
 		bool missing = false;
-		for (auto it = begin(sha1s); it != end(sha1s);) {
+		for (auto it = sha1s.begin(); it != sha1s.end();) {
 			bool r = false;
 			if (remove_missing && !it->second.touched()) {
 				printf("rem %s\n", it->first.c_str());
@@ -316,18 +316,18 @@ int main(int argc, char *argv[])
 	if (!f)
 		error(EXIT_FAILURE, errno, "failed to open .sha1s.tmp");
 
-	for (const auto &h : sha1s) {
-		if (remove_missing && !h.second.touched())
+	for (auto it = sha1s.begin(); it != sha1s.end(); ++it) {
+		if (remove_missing && !it->second.touched())
 			continue;
 		char null[2] = {0};
 		char modified[128];
 		size_t modified_sz = snprintf(modified, 128, "%ld.%ld",
-		    h.second.modified().tv_sec, h.second.modified().tv_nsec);
-		if ((fwrite(h.first.c_str(), h.first.size(), 1, f) < 0) ||
+		    it->second.modified().tv_sec, it->second.modified().tv_nsec);
+		if ((fwrite(it->first.c_str(), it->first.size(), 1, f) < 0) ||
 		    (fwrite(null, 1, 1, f) < 0) ||
 		    (fwrite(modified, modified_sz, 1, f) < 0) ||
 		    (fwrite(null, 1, 1, f) < 0) ||
-		    (fwrite(h.second.hash().c_str(), h.second.hash().size(), 1, f) < 0) ||
+		    (fwrite(it->second.hash().c_str(), it->second.hash().size(), 1, f) < 0) ||
 		    (fwrite(null, 2, 1, f) < 0))
 			error(EXIT_FAILURE, errno, "fwrite");
 	}
