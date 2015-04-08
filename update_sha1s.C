@@ -139,13 +139,14 @@ CFileHashMap load_sha1s()
 		if (*end != 0)
 			error(EXIT_FAILURE, EINVAL, "parse error, expected NULL");
 
-		if (*it != 0)
-			error(EXIT_FAILURE, EINVAL, "parse error, expected NULL");
+		if (*it != 0 && *it != '\n')
+			error(EXIT_FAILURE, EINVAL, "parse error, expected NULL or newline");
 		++it;
 
 		tmp[fname] = CFileHash(hash, (struct timespec){sec, nsec});
 	}
 
+	free(buf);
 	return tmp;
 }
 
@@ -319,16 +320,15 @@ int main(int argc, char *argv[])
 	for (auto it = sha1s.begin(); it != sha1s.end(); ++it) {
 		if (remove_missing && !it->second.touched())
 			continue;
-		char null[2] = {0};
 		char modified[128];
 		size_t modified_sz = snprintf(modified, 128, "%ld.%ld",
 		    it->second.modified().tv_sec, it->second.modified().tv_nsec);
 		if ((fwrite(it->first.c_str(), it->first.size(), 1, f) < 0) ||
-		    (fwrite(null, 1, 1, f) < 0) ||
+		    (fwrite("", 1, 1, f) < 0) ||
 		    (fwrite(modified, modified_sz, 1, f) < 0) ||
-		    (fwrite(null, 1, 1, f) < 0) ||
+		    (fwrite("", 1, 1, f) < 0) ||
 		    (fwrite(it->second.hash().c_str(), it->second.hash().size(), 1, f) < 0) ||
-		    (fwrite(null, 2, 1, f) < 0))
+		    (fwrite("\0\n", 2, 1, f) < 0))
 			error(EXIT_FAILURE, errno, "fwrite");
 	}
 
