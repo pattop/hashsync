@@ -219,7 +219,7 @@ bool update_sha1s(CFileHashMap &sha1s, std::string path = ".")
 				continue;
 			if (strcmp(de->d_name, "..") == 0)
 				continue;
-			update_sha1s(sha1s, name);
+			updated = update_sha1s(sha1s, name) || updated;
 			continue;
 		}
 		if (de->d_type != DT_REG) {
