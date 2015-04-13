@@ -192,8 +192,20 @@ bool update_sha1(CFileHashMap &sha1s, const std::string &path)
 		return false;
 	}
 
-	printf("%s %s\n", it == sha1s.end() ? "add" : "mod", path.c_str());
-	sha1s[path] = CFileHash(calculate_sha1(fd), sb.st_mtim, true);
+	/*
+	 * Ignore files modified less than 3 seconds ago.
+	 * Something funny seems to be happening with very fresh files
+	 * on CentOS 6.6.
+	 */
+	struct timespec nownow;
+	if (clock_gettime(CLOCK_REALTIME, &nownow) != 0)
+		error(EXIT_FAILURE, errno, "clock_gettime");
+	if ((nownow.tv_sec - sb.st_mtim.tv_sec) < 3)
+		printf("<3s %s\n", path.c_str());
+	else {
+		printf("%s %s\n", it == sha1s.end() ? "add" : "mod", path.c_str());
+		sha1s[path] = CFileHash(calculate_sha1(fd), sb.st_mtim, true);
+	}
 
 	if (close(fd) != 0)
 		error(EXIT_FAILURE, errno, "close");
