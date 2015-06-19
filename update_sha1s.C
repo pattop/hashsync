@@ -222,7 +222,7 @@ bool update_sha1s(CFileHashMap &sha1s, std::string path = ".")
 {
 	DIR* d = opendir(path.c_str());
 	if (!d)
-		error(EXIT_FAILURE, errno, "Failed to open directory");
+		error(EXIT_FAILURE, errno, "Failed to open directory %s", path.c_str());
 
 	bool updated = false;
 	struct dirent* de;
@@ -231,6 +231,29 @@ bool update_sha1s(CFileHashMap &sha1s, std::string path = ".")
 		/* Ignore anything starting with ".sha1s" */
 		if (strncmp(name.c_str(), "./.sha1s", 8) == 0)
 			continue;
+		if (de->d_type == DT_LNK) {
+			char lnk[PATH_MAX + 1];
+			int r = readlink(name.c_str(), lnk, sizeof(lnk));
+			if (r < 0)
+				error(EXIT_FAILURE, errno, "Failed to read link");
+			if (r > PATH_MAX)
+				error(EXIT_FAILURE, EIO, "Link size too big");
+			lnk[r] = '\0';
+			struct stat sb;
+			if (stat(lnk, &sb) != 0)
+				error(EXIT_FAILURE, errno, "Could not stat %s", lnk);
+			switch (sb.st_mode & S_IFMT) {
+			case S_IFDIR:
+				de->d_type = DT_DIR;
+				break;
+			case S_IFREG:
+				de->d_type = DT_REG;
+				break;
+			default:
+				printf("Skipping %s -- link to something unusual?\n", name.c_str());
+				continue;
+			}
+		}
 		if (de->d_type == DT_DIR) {
 			if (strcmp(de->d_name, ".") == 0)
 				continue;
