@@ -182,13 +182,18 @@ bool update_sha1(CFileHashMap &sha1s, const std::string &path)
 	if (fstat(fd, &sb) != 0)
 		error(EXIT_FAILURE, errno, "Could not stat %s", path.c_str());
 
-	if (ignore_seconds && (now.tv_sec - sb.st_mtim.tv_sec) > ignore_seconds)
+	if (ignore_seconds && (now.tv_sec - sb.st_mtim.tv_sec) > ignore_seconds) {
+		if (close(fd) != 0)
+			error(EXIT_FAILURE, errno, "close");
 		return false;
+	}
 
 	auto it = sha1s.find(path);
 	if ((it != sha1s.end()) && (it->second.modified() == sb.st_mtim)) {
 		it->second.touch();
 		//printf("match %s\n", path.c_str());
+		if (close(fd) != 0)
+			error(EXIT_FAILURE, errno, "close");
 		return false;
 	}
 
