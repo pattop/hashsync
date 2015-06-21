@@ -31,6 +31,7 @@
 
 long ignore_seconds = 0;
 struct timespec now;
+const char *filename = ".sha1s";
 
 class CFileHash {
 public:
@@ -69,7 +70,8 @@ void usage(const char *name)
 	    "Usage: %s [options]\n"
 	    "Options:\n"
 	    "  -c remove SHA1 hashes for missing files\n"
-	    "  -i <days> ignore files modified longer than <days> in the past\n";
+	    "  -i <days> ignore files modified longer than <days> in the past\n"
+	    "  -f <filename> use filename instead of default .sha1s\n";
 	fprintf(stderr, usage, name);
 	exit(EXIT_FAILURE);
 }
@@ -91,12 +93,12 @@ CFileHashMap load_sha1s()
 	CFileHashMap tmp;
 
 	/* load existing SHA1 hashes */
-	const int fd = open(".sha1s", O_RDONLY);
+	const int fd = open(filename, O_RDONLY);
 	if (fd < 0 && errno != ENOENT)
-		error(EXIT_FAILURE, errno, "Failed to open .sha1s");
+		error(EXIT_FAILURE, errno, "Failed to open %s", filename);
 
 	if (fd < 0) {
-		printf("No existing .sha1s file\n");
+		printf("No existing sha1s file %s\n", filename);
 		return tmp;
 	}
 
@@ -293,7 +295,7 @@ int main(int argc, char *argv[])
 	bool remove_missing = false;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "ci:")) != -1) {
+	while ((opt = getopt(argc, argv, "ci:f:")) != -1) {
 		switch (opt) {
 		case 'c':
 			remove_missing = true;
@@ -303,6 +305,9 @@ int main(int argc, char *argv[])
 			if (ignore_seconds > (0xFFFFFFFF / 86400))
 				error(EXIT_FAILURE, EINVAL, "%s too big", optarg);
 			ignore_seconds *= 86400;
+			break;
+		case 'f':
+			filename = optarg;
 			break;
 		default:
 			usage(argv[0]);
@@ -352,9 +357,14 @@ int main(int argc, char *argv[])
 	if (!need_to_write)
 		return EXIT_SUCCESS;
 
-	FILE *f = fopen(".sha1s.tmp", "wb");
+	char sha1s_tmp[PATH_MAX] = { };
+	strncpy(sha1s_tmp, filename, PATH_MAX);
+	strncat(sha1s_tmp, ".tmp", PATH_MAX);
+	if (sha1s_tmp[PATH_MAX - 1])
+		error(EXIT_FAILURE, EINVAL, "filename too long");
+	FILE *f = fopen(sha1s_tmp, "wb");
 	if (!f)
-		error(EXIT_FAILURE, errno, "failed to open .sha1s.tmp");
+		error(EXIT_FAILURE, errno, "failed to open %s", sha1s_tmp);
 
 	for (auto it = sha1s.begin(); it != sha1s.end(); ++it) {
 		if (remove_missing && !it->second.touched())
@@ -374,7 +384,7 @@ int main(int argc, char *argv[])
 	if (fclose(f) != 0)
 		error(EXIT_FAILURE, errno, "fclose");
 
-	if (rename(".sha1s.tmp", ".sha1s") != 0)
+	if (rename(sha1s_tmp, filename) != 0)
 		error(EXIT_FAILURE, errno, "rename");
 
 	return EXIT_SUCCESS;
